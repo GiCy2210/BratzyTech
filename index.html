@@ -1819,81 +1819,21 @@
     </footer>
 
     <script>
-        // Dados iniciais
-        let products = JSON.parse(localStorage.getItem('products')) || [
-            {
-                id: 1,
-                name: "Fone de Ouvido Gamer RGB",
-                price: 299.90,
-                image: "https://images.unsplash.com/photo-1524678714210-9917a6c619c2?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60",
-                description: "Fone gamer com iluminação RGB e som surround 7.1. Ideal para jogos e transmissões.",
-                category: "audio",
-                seller: "TechStore",
-                sellerEmail: "tech@store.com"
-            },
-            {
-                id: 2,
-                name: "Teclado Mecânico Retroiluminado",
-                price: 459.90,
-                image: "https://images.unsplash.com/photo-1541140532154-b024d705b90a?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60",
-                description: "Teclado mecânico com switches azuis e iluminação personalizável. Design ergonômico para longas sessões de jogo.",
-                category: "perifericos",
-                seller: "GamerZone",
-                sellerEmail: "contato@gamerzone.com"
-            },
-            {
-                id: 3,
-                name: "Mouse Gamer Sem Fio",
-                price: 189.90,
-                image: "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60",
-                description: "Mouse gamer de alta precisão com 6 botões programáveis. Conexão sem fio de baixa latência.",
-                category: "perifericos",
-                seller: "TechStore",
-                sellerEmail: "tech@store.com"
-            },
-            {
-                id: 4,
-                name: "Monitor Curvo 32''",
-                price: 1899.90,
-                image: "https://images.unsplash.com/photo-1546538915-a9e2c8d76c54?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60",
-                description: "Monitor curvo gaming 144Hz com resolução QHD. Imersão total em jogos e filmes.",
-                category: "monitores",
-                seller: "GamerZone",
-                sellerEmail: "contato@gamerzone.com"
-            },
-            {
-                id: 5,
-                name: "Smartwatch Fitness",
-                price: 799.90,
-                image: "https://images.unsplash.com/photo-1546868871-7041f2a55e12?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60",
-                description: "Relógio inteligente com monitoramento de atividades e notificações. Resistente à água.",
-                category: "wearables",
-                seller: "TechStore",
-                sellerEmail: "tech@store.com"
-            },
-            {
-                id: 6,
-                name: "Caixa de Som Bluetooth",
-                price: 349.90,
-                image: "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60",
-                description: "Caixa de som portátil com bateria de longa duração. Som potente e claro para qualquer ambiente.",
-                category: "audio",
-                seller: "GamerZone",
-                sellerEmail: "contato@gamerzone.com"
-            }
-        ];
-        
+        // URL do Google Apps Script (substitua pela sua)
+        const API_BASE = 'https://script.google.com/macros/s/AKfycbztzWIsI8vI_kp7KRPgleVey_-RNm817WnDsEI4ZFR-ntpBrvN8KOcmuNCkQB-d_Wj0/exec';
+    
+        // Dados locais
+        let products = [];
         let cart = JSON.parse(localStorage.getItem('cart')) || [];
         let userType = localStorage.getItem('userType') || null;
         let userData = JSON.parse(localStorage.getItem('userData')) || {};
         let purchases = JSON.parse(localStorage.getItem('purchases')) || [];
         let currentPayment = null;
         let editingProductId = null;
-
+    
         // Elementos DOM
         const productsContainer = document.getElementById('products-container');
         const featuredProductsContainer = document.getElementById('featured-products-container');
-        const newProductsContainer = document.getElementById('new-products-container');
         const searchInput = document.getElementById('search-input');
         const searchBtn = document.querySelector('.search-btn');
         const searchBar = document.querySelector('.search-bar');
@@ -1937,7 +1877,7 @@
         const cartTotal = document.getElementById('cart-total');
         const checkoutBtn = document.getElementById('checkout-btn');
         const cartCount = document.querySelector('.cart-count');
-
+    
         // Elementos do modal de produto
         const productModalImg = document.getElementById('product-modal-img');
         const productModalTitle = document.getElementById('product-modal-title');
@@ -1945,12 +1885,217 @@
         const productModalSeller = document.getElementById('product-modal-seller');
         const productModalDescription = document.getElementById('product-modal-description');
         const productModalActions = document.getElementById('product-modal-actions');
-
-        // Inicialização
-        document.addEventListener('DOMContentLoaded', function() {
+    
+        // ========== FUNÇÕES DA API GOOGLE SHEETS ==========
+    
+        // Função para buscar produtos da API
+        async function fetchProducts() {
+            try {
+                const response = await fetch(`${API_BASE}?action=getProducts`);
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar produtos');
+                }
+                const data = await response.json();
+                
+                // Mapear os campos do Google Sheets para nosso formato
+                return data.map(item => ({
+                    id: item.ID,
+                    name: item.Name,
+                    price: parseFloat(item.Price),
+                    image: item.Image,
+                    description: item.Description,
+                    category: item.Category,
+                    seller: item.Seller,
+                    sellerEmail: item.SellerEmail,
+                    createdAt: item.CreatedAt
+                }));
+            } catch (error) {
+                console.error('Erro ao buscar produtos:', error);
+                // Fallback para dados locais
+                return JSON.parse(localStorage.getItem('products')) || [];
+            }
+        }
+    
+        // Função para adicionar produto via API
+        async function addProductAPI(product) {
+            try {
+                // Mapear para o formato do Google Sheets
+                const productData = {
+                    ID: product.id,
+                    Name: product.name,
+                    Price: product.price,
+                    Image: product.image,
+                    Description: product.description,
+                    Category: product.category,
+                    Seller: product.seller,
+                    SellerEmail: product.sellerEmail,
+                    CreatedAt: new Date().toISOString()
+                };
+    
+                const response = await fetch(API_BASE, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(productData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Erro ao adicionar produto');
+                }
+                
+                const result = await response.json();
+                return result.success ? product : null;
+            } catch (error) {
+                console.error('Erro ao adicionar produto:', error);
+                // Fallback para localStorage
+                const products = JSON.parse(localStorage.getItem('products')) || [];
+                products.push(product);
+                localStorage.setItem('products', JSON.stringify(products));
+                return product;
+            }
+        }
+    
+        // Função para atualizar produto via API
+        async function updateProductAPI(productId, product) {
+            try {
+                // Mapear para o formato do Google Sheets
+                const productData = {
+                    ID: productId,
+                    Name: product.name,
+                    Price: product.price,
+                    Image: product.image,
+                    Description: product.description,
+                    Category: product.category,
+                    Seller: product.seller,
+                    SellerEmail: product.sellerEmail
+                };
+    
+                const response = await fetch(API_BASE, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(productData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Erro ao atualizar produto');
+                }
+                
+                const result = await response.json();
+                return result.success ? product : null;
+            } catch (error) {
+                console.error('Erro ao atualizar produto:', error);
+                // Fallback para localStorage
+                const products = JSON.parse(localStorage.getItem('products')) || [];
+                const index = products.findIndex(p => p.id === productId);
+                if (index !== -1) {
+                    products[index] = product;
+                    localStorage.setItem('products', JSON.stringify(products));
+                }
+                return product;
+            }
+        }
+    
+        // Função para deletar produto via API
+        async function deleteProductAPI(productId) {
+            try {
+                const response = await fetch(`${API_BASE}?action=deleteProduct&id=${productId}`);
+                
+                if (!response.ok) {
+                    throw new Error('Erro ao deletar produto');
+                }
+                
+                const result = await response.json();
+                return result.success;
+            } catch (error) {
+                console.error('Erro ao deletar produto:', error);
+                // Fallback para localStorage
+                const products = JSON.parse(localStorage.getItem('products')) || [];
+                const filteredProducts = products.filter(p => p.id !== productId);
+                localStorage.setItem('products', JSON.stringify(filteredProducts));
+                return true;
+            }
+        }
+    
+        // ========== FUNÇÕES PRINCIPAIS MODIFICADAS ==========
+    
+        // Função para salvar produto (agora usando Google Sheets)
+        async function saveProduct() {
+            const name = document.getElementById('product-form-name').value;
+            const price = parseFloat(document.getElementById('product-form-price').value);
+            const image = document.getElementById('product-form-image').value;
+            const description = document.getElementById('product-form-description').value;
+            const category = document.getElementById('product-form-category').value;
+            
+            if (!name || !price || !image || !description || !category) {
+                alert('Por favor, preencha todos os campos.');
+                return;
+            }
+            
+            const productData = {
+                name,
+                price,
+                image,
+                description,
+                category,
+                seller: userData.sellerName,
+                sellerEmail: userData.email
+            };
+            
+            let success = false;
+            
+            if (editingProductId) {
+                // Atualizar produto existente
+                productData.id = editingProductId;
+                const updatedProduct = await updateProductAPI(editingProductId, productData);
+                success = !!updatedProduct;
+            } else {
+                // Adicionar novo produto
+                productData.id = Date.now();
+                const newProduct = await addProductAPI(productData);
+                success = !!newProduct;
+            }
+            
+            if (success) {
+                // Recarregar produtos da API
+                products = await fetchProducts();
+                renderProducts();
+                renderFeaturedProducts();
+                
+                productFormModal.classList.remove('active');
+                resetProductForm();
+                
+                alert(editingProductId ? 'Produto atualizado com sucesso!' : 'Produto adicionado com sucesso!');
+            } else {
+                alert('Erro ao salvar o produto. Tente novamente.');
+            }
+        }
+    
+        // Função para deletar produto do site (agora usando Google Sheets)
+        async function deleteProductFromSite(productId) {
+            const success = await deleteProductAPI(productId);
+            
+            if (success) {
+                // Recarregar produtos da API
+                products = await fetchProducts();
+                renderProducts();
+                renderFeaturedProducts();
+                updateCart();
+                alert('Produto removido do site com sucesso!');
+            } else {
+                alert('Erro ao remover o produto. Tente novamente.');
+            }
+        }
+    
+        // ========== INICIALIZAÇÃO ==========
+    
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Carregar produtos da API
+            products = await fetchProducts();
             renderProducts();
             renderFeaturedProducts();
-            renderNewProducts();
             updateCart();
             updateUIForUserType();
             
@@ -2111,14 +2256,6 @@
                 checkout();
             });
             
-            // Filtro por categoria
-            document.querySelectorAll('.category-card').forEach(card => {
-                card.addEventListener('click', function() {
-                    const category = this.getAttribute('data-category');
-                    filterProductsByCategory(category);
-                });
-            });
-            
             // Navegação suave
             document.querySelectorAll('a[href^="#"]').forEach(anchor => {
                 anchor.addEventListener('click', function(e) {
@@ -2167,12 +2304,14 @@
                 }
             });
         });
-
+    
+        // ========== FUNÇÕES EXISTENTES (mantidas) ==========
+    
         // Funções de produtos
         function renderProducts() {
             productsContainer.innerHTML = '';
             
-            products.forEach((product, index) => {
+            products.forEach((product) => {
                 const productCard = document.createElement('div');
                 productCard.className = 'product-card';
                 productCard.innerHTML = `
@@ -2182,7 +2321,7 @@
                         <p>${product.description.substring(0, 100)}...</p>
                         <div class="price">R$ ${product.price.toFixed(2)}</div>
                         <div class="product-actions">
-                            <button class="btn btn-primary" onclick="addToCart(${index})">Comprar</button>
+                            <button class="btn btn-primary" onclick="addToCart(${product.id})">Comprar</button>
                         </div>
                     </div>
                 `;
@@ -2198,16 +2337,14 @@
                 productsContainer.appendChild(productCard);
             });
         }
-
+    
         function renderFeaturedProducts() {
             featuredProductsContainer.innerHTML = '';
             
             // Selecionar alguns produtos aleatórios como destaque
             const featuredProducts = [...products].sort(() => 0.5 - Math.random()).slice(0, 4);
             
-            featuredProducts.forEach((product, index) => {
-                const originalIndex = products.findIndex(p => p.id === product.id);
-                
+            featuredProducts.forEach((product) => {
                 const productCard = document.createElement('div');
                 productCard.className = 'product-card';
                 productCard.innerHTML = `
@@ -2217,7 +2354,7 @@
                         <p>${product.description.substring(0, 100)}...</p>
                         <div class="price">R$ ${product.price.toFixed(2)}</div>
                         <div class="product-actions">
-                            <button class="btn btn-primary" onclick="addToCart(${originalIndex})">Comprar</button>
+                            <button class="btn btn-primary" onclick="addToCart(${product.id})">Comprar</button>
                         </div>
                     </div>
                 `;
@@ -2233,42 +2370,7 @@
                 featuredProductsContainer.appendChild(productCard);
             });
         }
-
-        function renderNewProducts() {
-            newProductsContainer.innerHTML = '';
-            
-            // Selecionar os produtos mais recentes
-            const newProducts = [...products].sort((a, b) => b.id - a.id).slice(0, 4);
-            
-            newProducts.forEach((product, index) => {
-                const originalIndex = products.findIndex(p => p.id === product.id);
-                
-                const productCard = document.createElement('div');
-                productCard.className = 'product-card';
-                productCard.innerHTML = `
-                    <img src="${product.image}" alt="${product.name}" class="product-img">
-                    <div class="product-info">
-                        <h3>${product.name}</h3>
-                        <p>${product.description.substring(0, 100)}...</p>
-                        <div class="price">R$ ${product.price.toFixed(2)}</div>
-                        <div class="product-actions">
-                            <button class="btn btn-primary" onclick="addToCart(${originalIndex})">Comprar</button>
-                        </div>
-                    </div>
-                `;
-                
-                // Adicionar evento de clique para abrir detalhes do produto
-                productCard.addEventListener('click', function(e) {
-                    // Evitar abrir o modal se o clique foi no botão de comprar
-                    if (!e.target.closest('.product-actions')) {
-                        openProductDetails(product);
-                    }
-                });
-                
-                newProductsContainer.appendChild(productCard);
-            });
-        }
-
+    
         function filterProducts(searchTerm) {
             if (!searchTerm.trim()) {
                 renderProducts();
@@ -2288,7 +2390,7 @@
                 return;
             }
             
-            filteredProducts.forEach((product, index) => {
+            filteredProducts.forEach((product) => {
                 const productCard = document.createElement('div');
                 productCard.className = 'product-card';
                 productCard.innerHTML = `
@@ -2298,7 +2400,7 @@
                         <p>${product.description.substring(0, 100)}...</p>
                         <div class="price">R$ ${product.price.toFixed(2)}</div>
                         <div class="product-actions">
-                            <button class="btn btn-primary" onclick="addToCart(${products.indexOf(product)})">Comprar</button>
+                            <button class="btn btn-primary" onclick="addToCart(${product.id})">Comprar</button>
                         </div>
                     </div>
                 `;
@@ -2314,54 +2416,7 @@
                 productsContainer.appendChild(productCard);
             });
         }
-
-        function filterProductsByCategory(category) {
-            const filteredProducts = products.filter(product => 
-                product.category === category
-            );
-            
-            productsContainer.innerHTML = '';
-            
-            if (filteredProducts.length === 0) {
-                productsContainer.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 40px;">Nenhum produto encontrado na categoria selecionada</div>';
-                return;
-            }
-            
-            filteredProducts.forEach((product, index) => {
-                const originalIndex = products.findIndex(p => p.id === product.id);
-                
-                const productCard = document.createElement('div');
-                productCard.className = 'product-card';
-                productCard.innerHTML = `
-                    <img src="${product.image}" alt="${product.name}" class="product-img">
-                    <div class="product-info">
-                        <h3>${product.name}</h3>
-                        <p>${product.description.substring(0, 100)}...</p>
-                        <div class="price">R$ ${product.price.toFixed(2)}</div>
-                        <div class="product-actions">
-                            <button class="btn btn-primary" onclick="addToCart(${originalIndex})">Comprar</button>
-                        </div>
-                    </div>
-                `;
-                
-                // Adicionar evento de clique para abrir detalhes do produto
-                productCard.addEventListener('click', function(e) {
-                    // Evitar abrir o modal se o clique foi no botão de comprar
-                    if (!e.target.closest('.product-actions')) {
-                        openProductDetails(product);
-                    }
-                });
-                
-                productsContainer.appendChild(productCard);
-            });
-            
-            // Rolar para a seção de produtos
-            document.getElementById('produtos').scrollIntoView({
-                behavior: 'smooth',
-                block: 'start'
-            });
-        }
-
+    
         // Funções de usuário
         function saveUserData(type) {
             if (type === 'buyer') {
@@ -2414,7 +2469,7 @@
             
             alert('Conta criada com sucesso!');
         }
-
+    
         function updateUIForUserType() {
             if (userType === 'seller') {
                 addProductBtn.classList.add('visible');
@@ -2422,14 +2477,14 @@
                 addProductBtn.classList.remove('visible');
             }
         }
-
+    
         function showAccountSelection() {
             document.getElementById('user-selection').style.display = 'block';
             buyerForm.classList.remove('active');
             sellerForm.classList.remove('active');
             accountScreen.classList.remove('active');
         }
-
+    
         function showAccountScreen() {
             document.getElementById('user-selection').style.display = 'none';
             buyerForm.classList.remove('active');
@@ -2457,7 +2512,7 @@
                 renderMyProducts();
             }
         }
-
+    
         function renderPurchases() {
             purchasesList.innerHTML = '';
             
@@ -2499,8 +2554,8 @@
                 purchasesList.appendChild(purchaseItem);
             });
         }
-
-        // NOVA FUNÇÃO: Renderizar produtos do vendedor
+    
+        // Função para renderizar produtos do vendedor
         function renderMyProducts() {
             myProductsList.innerHTML = '';
             
@@ -2526,7 +2581,7 @@
                     </div>
                     <div class="product-item-actions">
                         <button class="btn btn-outline edit-product-btn" data-id="${product.id}">Editar</button>
-                        <button class="btn btn-danger remove-product-btn" data-id="${product.id}">Remover</button>
+                        <button class="btn btn-danger remove-product-btn" data-id="${product.id}">Remover do Site</button>
                     </div>
                 `;
                 
@@ -2548,14 +2603,14 @@
             document.querySelectorAll('.remove-product-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const productId = parseInt(this.getAttribute('data-id'));
-                    if (confirm('Tem certeza que deseja remover este produto?')) {
-                        deleteProduct(productId);
+                    if (confirm('Tem certeza que deseja remover este produto do site? Esta ação não pode ser desfeita.')) {
+                        deleteProductFromSite(productId);
                         renderMyProducts();
                     }
                 });
             });
         }
-
+    
         function saveAccountSettings() {
             const name = document.getElementById('edit-name').value;
             const email = document.getElementById('edit-email').value;
@@ -2586,7 +2641,7 @@
             
             alert('Configurações salvas com sucesso!');
         }
-
+    
         function logout() {
             userType = null;
             userData = {};
@@ -2599,10 +2654,12 @@
             
             alert('Você saiu da sua conta.');
         }
-
+    
         // Funções do carrinho
-        function addToCart(productIndex) {
-            const product = products[productIndex];
+        function addToCart(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+            
             const existingItem = cart.find(item => item.id === product.id);
             
             if (existingItem) {
@@ -2631,7 +2688,7 @@
                 btn.disabled = false;
             }, 1500);
         }
-
+    
         function updateCart() {
             cartItems.innerHTML = '';
             
@@ -2671,7 +2728,7 @@
             cartTotal.textContent = `R$ ${total.toFixed(2)}`;
             cartCount.textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
         }
-
+    
         function updateQuantity(index, change) {
             cart[index].quantity += change;
             
@@ -2682,13 +2739,13 @@
             localStorage.setItem('cart', JSON.stringify(cart));
             updateCart();
         }
-
+    
         function removeFromCart(index) {
             cart.splice(index, 1);
             localStorage.setItem('cart', JSON.stringify(cart));
             updateCart();
         }
-
+    
         function checkout() {
             if (cart.length === 0) {
                 alert('Seu carrinho está vazio!');
@@ -2706,17 +2763,19 @@
             // Mostrar modal de pagamento
             showPaymentModal(total);
         }
-
+    
         // Funções de pagamento
         function showPaymentModal(total) {
             paymentAmount.textContent = `R$ ${total.toFixed(2)}`;
             paymentStatus.className = 'payment-status pending';
             paymentStatus.innerHTML = '<i class="fas fa-clock"></i> Aguardando confirmação do pagamento...';
+            paymentStatus.style.display = 'none';
             
             // Gerar um código PIX aleatório
-            const randomPix = generateRandomPix();
+            const randomPix = generateRandomPix(total);
             paymentPixCode.textContent = randomPix;
             
+            // Exibir o modal de pagamento
             paymentModal.classList.add('active');
             cartModal.classList.remove('active');
             
@@ -2728,9 +2787,10 @@
                 status: 'pending'
             };
         }
-
+    
         function simulatePayment() {
             // Simular processamento do pagamento
+            paymentStatus.style.display = 'block';
             paymentStatus.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processando pagamento...';
             
             setTimeout(() => {
@@ -2764,23 +2824,44 @@
                 }, 3000);
             }, 3000);
         }
-
-        function generateRandomPix() {
-            const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-            let result = '00020126580014br.gov.bcb.pix0136';
+    
+        function generateRandomPix(total) {
+            // Formatar o valor para o PIX (2 casas decimais)
+            const formattedTotal = total.toFixed(2).replace('.', '');
+            const totalLength = formattedTotal.length.toString().padStart(2, '0');
             
-            for (let i = 0; i < 36; i++) {
-                result += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
+            // Gerar um código PIX mais realista
+            const payloadFormatIndicator = '000201';
+            const pointOfInitiationMethod = '12'; // QR Code dinâmico
+            const merchantAccountInformation = '0014br.gov.bcb.pix' + '01' + (14 + Math.random().toString(36).substring(2, 16).length).toString().padStart(2, '0') + Math.random().toString(36).substring(2, 16);
+            const merchantCategoryCode = '0000';
+            const transactionCurrency = '986';
+            const transactionAmount = totalLength + formattedTotal;
+            const countryCode = 'BR';
+            const merchantName = 'BratzyTech';
+            const merchantCity = 'Sao Paulo';
+            const additionalDataField = '0503***';
+            const crc16 = '6304';
             
-            result += '5204000053039865406100.005802BR5913BRATZY TECH6008BRASILIA62070503***6304';
+            // Construir o payload
+            let payload = payloadFormatIndicator;
+            payload += '01' + pointOfInitiationMethod.length.toString().padStart(2, '0') + pointOfInitiationMethod;
+            payload += '26' + merchantAccountInformation.length.toString().padStart(2, '0') + merchantAccountInformation;
+            payload += '52' + merchantCategoryCode.length.toString().padStart(2, '0') + merchantCategoryCode;
+            payload += '53' + transactionCurrency.length.toString().padStart(2, '0') + transactionCurrency;
+            payload += '54' + transactionAmount.length.toString().padStart(2, '0') + transactionAmount;
+            payload += '58' + countryCode.length.toString().padStart(2, '0') + countryCode;
+            payload += '59' + merchantName.length.toString().padStart(2, '0') + merchantName;
+            payload += '60' + merchantCity.length.toString().padStart(2, '0') + merchantCity;
+            payload += '62' + additionalDataField.length.toString().padStart(2, '0') + additionalDataField;
+            payload += crc16;
             
-            // Adicionar checksum
-            result += Math.random().toString(36).substring(2, 6).toUpperCase();
+            // Adicionar checksum (simulado)
+            payload += Math.random().toString(36).substring(2, 6).toUpperCase();
             
-            return result;
+            return payload;
         }
-
+    
         function copyToClipboard(text, button) {
             navigator.clipboard.writeText(text).then(function() {
                 const originalText = button.textContent;
@@ -2793,7 +2874,7 @@
                 }, 2000);
             });
         }
-
+    
         // Funções de produto
         function openProductDetails(product) {
             productModalImg.src = product.image;
@@ -2820,10 +2901,10 @@
                 
                 const deleteButton = document.createElement('button');
                 deleteButton.className = 'btn btn-danger';
-                deleteButton.textContent = 'Excluir Produto';
+                deleteButton.textContent = 'Remover do Site';
                 deleteButton.addEventListener('click', function() {
-                    if (confirm('Tem certeza que deseja excluir este produto?')) {
-                        deleteProduct(product.id);
+                    if (confirm('Tem certeza que deseja remover este produto do site? Esta ação não pode ser desfeita.')) {
+                        deleteProductFromSite(product.id);
                         productModal.classList.remove('active');
                     }
                 });
@@ -2836,8 +2917,7 @@
                 buyButton.className = 'btn btn-primary';
                 buyButton.textContent = 'Comprar Agora';
                 buyButton.addEventListener('click', function() {
-                    const productIndex = products.findIndex(p => p.id === product.id);
-                    addToCart(productIndex);
+                    addToCart(product.id);
                     productModal.classList.remove('active');
                 });
                 
@@ -2846,7 +2926,7 @@
             
             productModal.classList.add('active');
         }
-
+    
         function openProductForm(product = null) {
             if (product) {
                 // Modo edição
@@ -2869,69 +2949,15 @@
             
             productFormModal.classList.add('active');
         }
-
+    
         function resetProductForm() {
             document.getElementById('product-form').reset();
             editingProductId = null;
         }
-
-        function saveProduct() {
-            const name = document.getElementById('product-form-name').value;
-            const price = parseFloat(document.getElementById('product-form-price').value);
-            const image = document.getElementById('product-form-image').value;
-            const description = document.getElementById('product-form-description').value;
-            const category = document.getElementById('product-form-category').value;
-            
-            if (!name || !price || !image || !description || !category) {
-                alert('Por favor, preencha todos os campos.');
-                return;
-            }
-            
-            if (editingProductId) {
-                // Atualizar produto existente
-                const productIndex = products.findIndex(p => p.id === editingProductId);
-                if (productIndex !== -1) {
-                    products[productIndex].name = name;
-                    products[productIndex].price = price;
-                    products[productIndex].image = image;
-                    products[productIndex].description = description;
-                    products[productIndex].category = category;
-                }
-            } else {
-                // Adicionar novo produto
-                const newProduct = {
-                    id: Date.now(),
-                    name,
-                    price,
-                    image,
-                    description,
-                    category,
-                    seller: userData.sellerName,
-                    sellerEmail: userData.email
-                };
-                
-                products.push(newProduct);
-            }
-            
-            localStorage.setItem('products', JSON.stringify(products));
-            renderProducts();
-            renderFeaturedProducts();
-            renderNewProducts();
-            
-            productFormModal.classList.remove('active');
-            resetProductForm();
-            
-            alert(editingProductId ? 'Produto atualizado com sucesso!' : 'Produto adicionado com sucesso!');
-        }
-
+    
+        // Função para excluir produto (mantida para compatibilidade)
         function deleteProduct(productId) {
-            products = products.filter(product => product.id !== productId);
-            localStorage.setItem('products', JSON.stringify(products));
-            renderProducts();
-            renderFeaturedProducts();
-            renderNewProducts();
-            
-            alert('Produto excluído com sucesso!');
+            deleteProductFromSite(productId);
         }
     </script>
 </body>
